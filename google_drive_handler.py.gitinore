@@ -1,0 +1,26 @@
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+import os
+import io
+
+SCOPES = ['https://www.googleapis.com/auth/drive']
+SERVICE_ACCOUNT_FILE = 'credentials/chatbot-rag-442510-2c5afc0279f8.json'
+
+def download_files(folder_id, destination_folder):
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('drive', 'v3', credentials=creds)
+    results = service.files().list(q=f"'{folder_id}' in parents",
+                                   fields="files(id, name)").execute()
+    items = results.get('files', [])
+    if not os.path.exists(destination_folder):
+        os.makedirs(destination_folder)
+    for item in items:
+        file_id = item['id']
+        file_name = item['name']
+        request = service.files().get_media(fileId=file_id)
+        with io.FileIO(os.path.join(destination_folder, file_name), 'wb') as fh:
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
